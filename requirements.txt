@@ -1,0 +1,57 @@
+# Core ML libraries
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.14.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# MLOps & Orchestration
+mlflow>=2.5.0
+optuna>=3.2.0
+
+# API & Backend
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+alembic>=1.11.0
+
+# Monitoring & Observability
+evidently>=0.4.0
+prometheus-client>=0.17.0
+grafana-api>=1.0.3
+
+# Data processing
+pyarrow>=12.0.0
+fsspec>=2023.6.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0
+click>=8.1.0
+tqdm>=4.65.0
+loguru>=0.7.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-xdist>=3.3.0
+httpx>=0.24.0
+factory-boy>=3.3.0
+
+# Development
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.4.0
+
+# Container & Cloud
+boto3>=1.28.0
+docker>=6.1.0

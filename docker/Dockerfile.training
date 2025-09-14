@@ -1,0 +1,48 @@
+# Dockerfile for training pipeline
+FROM python:3.9-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        git \
+        libpq-dev \
+        gcc \
+        g++ \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CUDA support (optional, for GPU training)
+# Uncomment if you have GPU support
+# RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Create non-root user
+RUN groupadd -r trainer && useradd -r -g trainer trainer
+
+# Set work directory
+WORKDIR /app
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+# Create necessary directories
+RUN mkdir -p data logs models mlruns \
+    && chown -R trainer:trainer /app
+
+# Switch to non-root user
+USER trainer
+
+# Default command (can be overridden)
+CMD ["python", "scripts/train_pipeline.py"]

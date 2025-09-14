@@ -1,0 +1,71 @@
+# Multi-stage Docker build for ML API service
+FROM python:3.9-slim as builder
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install build dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        gcc \
+        g++ \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Production stage
+FROM python:3.9-slim as production
+
+# Set security-focused environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/home/appuser/.local/bin:$PATH" \
+    PYTHONPATH="/app/src"
+
+# Install runtime dependencies only
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove
+
+# Create non-root user with specific UID/GID
+RUN groupadd -r -g 1000 appuser && useradd -r -u 1000 -g appuser -m -s /bin/false appuser
+
+# Set work directory
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+
+# Copy application code with proper ownership
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser scripts/ ./scripts/
+
+# Create necessary directories with proper permissions
+RUN mkdir -p data logs models \
+    && chown -R appuser:appuser /app \
+    && chmod -R 755 /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check with proper timeout and non-root execution
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Use exec form for better signal handling
+CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
