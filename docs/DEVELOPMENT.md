@@ -305,10 +305,8 @@ flowchart TD
 
     CONF --> RESULT[Build Response<br/>sentiment, confidence, time]
 
-    par Async Operations
-        RESULT --> DBLOG[Log to PostgreSQL]
-        RESULT --> METRICS[Update Prometheus]
-    end
+    RESULT --> DBLOG[Log to PostgreSQL]
+    RESULT --> METRICS[Update Prometheus]
 
     DBLOG --> RETURN[Return JSON Response]
     METRICS --> RETURN
