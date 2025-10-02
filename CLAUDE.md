@@ -71,6 +71,9 @@ mypy src/ --ignore-missing-imports --no-strict-optional
 # Start core services (DB, MLflow, API)
 docker-compose up -d postgres mlflow api
 
+# Start frontend application
+docker-compose up -d frontend
+
 # Run training in container
 docker-compose --profile training up training
 
@@ -79,10 +82,12 @@ docker-compose up -d prometheus grafana
 
 # View service logs
 docker-compose logs -f api
+docker-compose logs -f frontend
 docker-compose logs -f training
 
 # Stop specific services
 docker-compose stop api              # Stop API service only
+docker-compose stop frontend         # Stop frontend only
 docker-compose stop mlflow           # Stop MLflow only
 docker-compose stop postgres         # Stop database only
 
@@ -100,6 +105,31 @@ docker-compose ps
 
 # Run comprehensive health check
 ./scripts/check_services.sh
+```
+
+### Frontend Application
+```bash
+# Frontend is built with React + Vite + TailwindCSS
+# Served via Nginx with API proxy on port 5173
+
+# Access frontend
+open http://localhost:5173  # macOS
+# or navigate to http://localhost:5173 in browser
+
+# Frontend features:
+# - Real-time sentiment analysis interface
+# - Nginx proxy: /api/* → http://localhost:8000/*
+# - No CORS issues (same-origin requests via proxy)
+
+# Rebuild frontend after code changes
+docker-compose build frontend
+docker-compose up -d frontend
+
+# Frontend development (local, not containerized)
+cd frontend
+npm install
+npm run dev  # Development server with hot reload
+npm run build  # Production build
 ```
 
 ### Service Health Verification
@@ -248,3 +278,17 @@ Use docker-compose for local development with hot-reloading and volume mounts fo
 - New database tables must be added to the security whitelist
 - Environment variables containing secrets should not have defaults
 - Container images should run as non-root users
+
+## 📚 Additional Documentation
+
+For more detailed information, refer to:
+
+- **[README.md](README.md)** - User guide, quick start, deployment instructions
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Architecture diagrams, design decisions, detailed component explanations
+- **[docs/MONITORING.md](docs/MONITORING.md)** - Prometheus metrics, Grafana dashboards, drift detection, troubleshooting
+
+These documents provide comprehensive coverage of:
+- System architecture with Mermaid diagrams
+- Training and serving pipeline flows
+- Production deployment on AWS
+- Complete monitoring setup and alerting

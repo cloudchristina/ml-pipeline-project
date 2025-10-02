@@ -11,11 +11,13 @@ This project implements a complete ML pipeline covering:
 - **Model Production**: FastAPI service with prediction endpoints
 - **Database Technologies**: PostgreSQL for metadata and prediction storage
 - **Backend Development**: RESTful API with Pydantic validation
-- **Monitoring & Observability**: Evidently AI for data/model drift detection
+- **Monitoring & Observability**: Prometheus, Grafana, and Evidently AI for drift detection
 - **Automation & CI/CD**: GitHub Actions pipeline (ready for deployment)
 - **Container Orchestration**: Docker & docker-compose for local development
 - **Infrastructure Provisioning**: Terraform configurations for AWS deployment
 - **Cloud Technology**: Production-ready AWS infrastructure (ECS, RDS, S3)
+
+📖 **For detailed architecture diagrams and design decisions, see [Development Guide](docs/DEVELOPMENT.md#system-architecture)**
 
 ## ✅ Testing Status
 
@@ -224,7 +226,7 @@ DB_USER=postgres
 DB_PASSWORD=<your-password>
 
 # MLflow Configuration
-MLFLOW_TRACKING_URI=./mlruns  # Local file-based OR http://localhost:5001 for server
+MLFLOW_TRACKING_URI=http://localhost:5001
 MLFLOW_EXPERIMENT_NAME=sentiment_analysis
 
 # Model Configuration
@@ -399,45 +401,24 @@ curl http://localhost:8000/
 
 ## 📈 Monitoring & Metrics
 
-### Prometheus Metrics
+The pipeline includes comprehensive monitoring with Prometheus, Grafana, and database analytics.
 
-Access at `http://localhost:9090/metrics`:
+**Quick Start Monitoring:**
+```bash
+# View instant snapshot
+python scripts/quick_monitor.py
 
-- `ml_predictions_total` - Total number of predictions
-- `ml_prediction_duration_seconds` - Prediction latency
-- `ml_model_accuracy` - Current model accuracy
-- `ml_drift_score` - Data drift score
-- `ml_api_requests_total` - API request count
+# Live dashboard (updates every 10s)
+python scripts/monitor_model_performance.py
+```
 
-### Grafana Dashboards
+**Monitoring Services:**
+- **Prometheus** (http://localhost:9090): Real-time metrics collection
+- **Grafana** (http://localhost:3000): Visual dashboards (login: admin/admin)
+- **MLflow** (http://localhost:5001): Experiment tracking and model registry
+- **Database Analytics**: PostgreSQL queries for historical analysis
 
-Access at `http://localhost:3000` (admin/admin):
-
-1. **Model Performance Dashboard**
-   - Prediction throughput
-   - Latency percentiles
-   - Error rates
-   - Confidence distribution
-
-2. **Data Quality Dashboard**
-   - Input data distribution
-   - Data drift metrics
-   - Anomaly detection
-
-3. **System Health Dashboard**
-   - CPU/Memory usage
-   - Database connections
-   - API response times
-
-### MLflow Tracking
-
-Access at `http://localhost:5001`:
-
-- Experiment comparison
-- Hyperparameter tuning results
-- Model artifacts
-- Metrics visualization
-- Model registry
+📊 **For complete monitoring guide, see [Monitoring Guide](docs/MONITORING.md)**
 
 ## 🚢 Deployment
 
@@ -504,9 +485,11 @@ pip install 'accelerate>=0.26.0'
 
 **Issue**: MLflow connection failed
 ```bash
-# Solution: Use local file-based tracking
-# In .env, change:
-MLFLOW_TRACKING_URI=./mlruns
+# Solution: Ensure MLflow server is running
+docker-compose up -d mlflow
+
+# Verify MLflow is accessible
+curl http://localhost:5001/health
 ```
 
 **Issue**: `evaluation_strategy` parameter error

@@ -6,65 +6,465 @@ Complete developer guide for the ML Pipeline project covering architecture, desi
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Development Environment](#development-environment)
-3. [Core Development Workflows](#core-development-workflows)
-4. [Technology Stack](#technology-stack)
-5. [Design Decisions](#design-decisions)
-6. [Database Architecture](#database-architecture)
-7. [Security Architecture](#security-architecture)
-8. [Testing Strategy](#testing-strategy)
-9. [Performance & Scalability](#performance--scalability)
+1. [System Architecture](#system-architecture)
+2. [Component Design](#component-design)
+3. [Data Flow & Interaction](#data-flow--interaction)
+4. [Development Environment](#development-environment)
+5. [Core Development Workflows](#core-development-workflows)
+6. [Technology Stack](#technology-stack)
+7. [Design Decisions](#design-decisions)
+8. [Database Architecture](#database-architecture)
+9. [Security Architecture](#security-architecture)
+10. [Testing Strategy](#testing-strategy)
+11. [Performance & Scalability](#performance--scalability)
 
 ---
 
-## Architecture Overview
+## System Architecture
 
-### System Architecture
+### High-Level Architecture Overview
 
-The pipeline implements a production-ready MLOps architecture with clear separation between training and serving:
+This ML pipeline implements a complete end-to-end MLOps system with three distinct environments: Training, Serving, and Monitoring.
 
+```mermaid
+graph TB
+    subgraph "Training Environment"
+        HF[Hugging Face Datasets<br/>IMDB 25k reviews]
+        DP[Data Pipeline<br/>Tokenization & Preprocessing]
+        TP[Training Pipeline<br/>DistilBERT Fine-tuning]
+        MLF[MLflow<br/>Experiment Tracking]
+
+        HF --> DP
+        DP --> TP
+        TP --> MLF
+        TP --> MS[Model Storage<br/>models/final_model/]
+    end
+
+    subgraph "Serving Environment"
+        FE[Frontend<br/>React + Nginx<br/>Port 5173]
+        API[FastAPI<br/>Prediction Service<br/>Port 8000]
+        MODEL[Model Loader<br/>DistilBERT]
+        DB[(PostgreSQL<br/>Prediction Logs)]
+
+        FE -->|HTTP /api/predict| API
+        API --> MODEL
+        MODEL -->|Inference| API
+        API --> DB
+    end
+
+    subgraph "Monitoring Environment"
+        PROM[Prometheus<br/>Metrics Collection<br/>Port 9090]
+        GRAF[Grafana<br/>Visualization<br/>Port 3000]
+        EVID[Evidently AI<br/>Drift Detection]
+
+        API -->|/metrics| PROM
+        PROM --> GRAF
+        DB --> EVID
+    end
+
+    MS -.->|Deploy Model| MODEL
+    MLF -.->|Track Experiments| TP
+
+    style HF fill:#e1f5ff
+    style API fill:#fff4e1
+    style PROM fill:#ffe1e1
+    style DB fill:#e1ffe1
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      TRAINING PIPELINE                       │
-│  ┌────────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │  Hugging   │→ │    Data      │→ │    Training      │    │
-│  │   Face     │  │   Pipeline   │  │    Pipeline      │    │
-│  │  Datasets  │  │              │  │  + MLflow Track  │    │
-│  └────────────┘  └──────────────┘  └──────────────────┘    │
-│                                              ↓               │
-│                                    ┌──────────────────┐     │
-│                                    │  Model Registry  │     │
-│                                    │   (MLflow)       │     │
-│                                    └──────────────────┘     │
-│                                              ↓               │
-└──────────────────────────────────────────────────────────────┘
-                                              ↓
-                                    ┌──────────────────┐
-                                    │  Save to Disk    │
-                                    │ (models/final/)  │
-                                    └──────────────────┘
-                                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      SERVING PIPELINE                        │
-│  ┌────────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │   User     │→ │   FastAPI    │→ │  Prediction      │    │
-│  │  Request   │  │   Endpoint   │  │   Service        │    │
-│  └────────────┘  └──────────────┘  └──────────────────┘    │
-│                                              ↓               │
-│                          ┌───────────────────┴────────────┐  │
-│                          ↓                                ↓  │
-│                  ┌──────────────┐              ┌──────────┐ │
-│                  │  PostgreSQL  │              │  Return  │ │
-│                  │  (Logging)   │              │  Result  │ │
-│                  └──────────────┘              └──────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-                  ┌──────────────┐
-                  │  Monitoring  │
-                  │ (Prometheus) │
-                  └──────────────┘
+
+**Architecture Principles:**
+
+1. **Separation of Concerns**: Training, serving, and monitoring are independent
+2. **Production-First**: Built for real-world deployment from day one
+3. **Observability**: Every prediction logged and monitored
+4. **Scalability**: Designed for horizontal scaling
+
+---
+
+## Component Design
+
+### 1. Training Pipeline
+
+The training pipeline handles model development and experimentation.
+
+```mermaid
+flowchart LR
+    subgraph "Data Layer"
+        DS[Dataset Loader<br/>src/data/dataset_loader.py]
+        CACHE[Cache<br/>~/.cache/huggingface]
+    end
+
+    subgraph "Processing Layer"
+        TOK[Tokenizer<br/>DistilBERT Tokenizer]
+        PREP[Data Pipeline<br/>src/data/data_pipeline.py]
+    end
+
+    subgraph "Training Layer"
+        TRAIN[Model Trainer<br/>src/models/model_trainer.py]
+        OPT[Optuna Optimizer<br/>Hyperparameter Tuning]
+    end
+
+    subgraph "Tracking Layer"
+        MLF[MLflow Tracking<br/>Experiments & Metrics]
+        REG[MLflow Registry<br/>Model Versioning]
+    end
+
+    DS --> CACHE
+    CACHE --> TOK
+    TOK --> PREP
+    PREP --> TRAIN
+    TRAIN --> OPT
+    TRAIN --> MLF
+    MLF --> REG
+    REG --> DISK[Disk Storage<br/>models/final_model/]
+
+    style DS fill:#e3f2fd
+    style TRAIN fill:#fff3e0
+    style MLF fill:#f3e5f5
 ```
+
+**Component Explanations:**
+
+- **Dataset Loader**: Fetches IMDB dataset from Hugging Face, caches locally
+- **Tokenizer**: Converts text to tokens using DistilBERT vocabulary (30,522 tokens)
+- **Data Pipeline**: Handles batching, padding, and dataset splitting
+- **Model Trainer**: Fine-tunes DistilBERT using Hugging Face Trainer API
+- **Optuna Optimizer**: Searches hyperparameter space (learning rate, batch size, epochs)
+- **MLflow Tracking**: Logs parameters, metrics, and artifacts for each run
+- **MLflow Registry**: Versions models and tracks lineage
+
+---
+
+### 2. Serving Pipeline
+
+The serving pipeline handles real-time predictions.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Nginx
+    participant FastAPI
+    participant Model
+    participant DB
+    participant Prometheus
+
+    User->>Frontend: Enter review text
+    Frontend->>Nginx: POST /api/predict
+    Nginx->>FastAPI: Forward to /predict
+
+    FastAPI->>FastAPI: Validate input (Pydantic)
+    FastAPI->>Model: Load model (cached)
+
+    Model->>Model: Tokenize text
+    Model->>Model: Run inference
+    Model-->>FastAPI: Return prediction + confidence
+
+    par Log to Database
+        FastAPI->>DB: INSERT prediction_logs
+    and Record Metrics
+        FastAPI->>Prometheus: Update counters/histograms
+    end
+
+    FastAPI-->>Nginx: JSON response
+    Nginx-->>Frontend: JSON response
+    Frontend-->>User: Display result
+```
+
+**Component Explanations:**
+
+- **Frontend (React)**: User interface for sentiment analysis, served via Nginx on port 5173
+- **Nginx Proxy**: Routes `/api/*` requests to FastAPI, serves static files
+- **FastAPI**: REST API with automatic validation, documentation, and error handling
+- **Model Loader**: Singleton pattern - loads model once, reuses for all predictions
+- **Pydantic Validation**: Ensures input text is 1-5000 characters, JSON formatted
+- **PostgreSQL Logging**: Records every prediction with metadata for audit and analysis
+- **Prometheus Metrics**: Real-time counters and histograms for monitoring
+
+---
+
+### 3. Monitoring Pipeline
+
+The monitoring pipeline tracks model performance and system health.
+
+```mermaid
+graph TB
+    subgraph "Data Sources"
+        API[FastAPI /metrics<br/>Prometheus format]
+        DB[(PostgreSQL<br/>prediction_logs)]
+    end
+
+    subgraph "Collection"
+        PROM[Prometheus<br/>Scrape every 15s]
+        QUERY[SQL Queries<br/>Aggregations]
+    end
+
+    subgraph "Analysis"
+        EVID[Evidently AI<br/>Drift Detection]
+        ALERT[Alert Manager<br/>monitoring_alerts]
+    end
+
+    subgraph "Visualization"
+        GRAF[Grafana Dashboards<br/>10 panels]
+        CLI[CLI Monitor<br/>quick_monitor.py]
+    end
+
+    API -->|Scrape| PROM
+    DB --> QUERY
+    QUERY --> EVID
+    EVID --> ALERT
+    PROM --> GRAF
+    DB --> CLI
+    PROM --> CLI
+
+    style API fill:#ffe1e1
+    style EVID fill:#e1f5ff
+    style GRAF fill:#f3e5f5
+```
+
+**Component Explanations:**
+
+- **Prometheus Scraping**: Pulls metrics from `/metrics` endpoint every 15 seconds
+- **Custom Metrics**: Counters (predictions), Histograms (latency, confidence), Gauges (model status)
+- **Evidently AI**: Detects data drift (input distribution), concept drift (model behavior), performance drift
+- **Alert Manager**: Stores alerts in database, can trigger notifications (Slack, email)
+- **Grafana Dashboards**: Visual monitoring with 10 panels (sentiment distribution, latency, confidence)
+- **CLI Monitor**: Quick snapshot for terminal-based monitoring
+
+---
+
+## Data Flow & Interaction
+
+### Training Flow
+
+```mermaid
+flowchart TD
+    START([Start Training]) --> LOAD[Load IMDB Dataset<br/>25,000 reviews]
+    LOAD --> SPLIT[Split Dataset<br/>Train/Val/Test]
+    SPLIT --> TOKEN[Tokenize Text<br/>Max length: 512]
+    TOKEN --> CONFIG[Configure Training<br/>Batch size, LR, Epochs]
+
+    CONFIG --> TRAIN{Training Loop}
+    TRAIN --> EPOCH[Process Epoch]
+    EPOCH --> BATCH[Process Batch]
+    BATCH --> FORWARD[Forward Pass]
+    FORWARD --> LOSS[Compute Loss]
+    LOSS --> BACKWARD[Backward Pass]
+    BACKWARD --> UPDATE[Update Weights]
+    UPDATE --> EVAL{Eval Time?}
+
+    EVAL -->|Every 500 steps| VALIDATE[Run Validation]
+    EVAL -->|No| BATCH
+    VALIDATE --> LOG[Log to MLflow]
+    LOG --> BATCH
+
+    BATCH --> DONE{Epoch Done?}
+    DONE -->|No| BATCH
+    DONE -->|Yes| CHECKPOINT[Save Checkpoint]
+    CHECKPOINT --> MORE{More Epochs?}
+    MORE -->|Yes| TRAIN
+    MORE -->|No| FINAL[Save Final Model]
+
+    FINAL --> REGISTER[Register in MLflow]
+    REGISTER --> END([Training Complete])
+
+    style START fill:#4caf50
+    style END fill:#4caf50
+    style TRAIN fill:#ff9800
+    style EVAL fill:#2196f3
+```
+
+**Explanation:**
+
+1. **Data Loading**: Hugging Face datasets automatically caches data locally
+2. **Tokenization**: Converts text to input IDs, attention masks, and labels
+3. **Training Loop**: Standard PyTorch training with gradient accumulation
+4. **Validation**: Every 500 steps, evaluate on validation set
+5. **MLflow Logging**: Parameters, metrics, and model artifacts logged automatically
+6. **Checkpointing**: Saves model at end of each epoch (checkpoint-313, checkpoint-626, etc.)
+
+---
+
+### Prediction Flow
+
+```mermaid
+flowchart TD
+    START([User Submits Text]) --> VALIDATE{Valid Input?}
+    VALIDATE -->|No| ERROR[Return 422 Error]
+    VALIDATE -->|Yes| LOAD{Model Loaded?}
+
+    LOAD -->|No| LOADM[Load Model from Disk]
+    LOADM --> CACHE[Cache in Memory]
+    CACHE --> PROCESS
+    LOAD -->|Yes| PROCESS[Tokenize Input]
+
+    PROCESS --> TENSOR[Convert to Tensors]
+    TENSOR --> INFER[Model Inference]
+    INFER --> LOGITS[Get Logits]
+    LOGITS --> SOFT[Apply Softmax]
+    SOFT --> CONF[Calculate Confidence]
+
+    CONF --> RESULT[Build Response<br/>sentiment, confidence, time]
+
+    par Async Operations
+        RESULT --> DBLOG[Log to PostgreSQL]
+        RESULT --> METRICS[Update Prometheus]
+    end
+
+    DBLOG --> RETURN[Return JSON Response]
+    METRICS --> RETURN
+    RETURN --> END([Response Sent])
+
+    style START fill:#4caf50
+    style ERROR fill:#f44336
+    style INFER fill:#ff9800
+    style END fill:#4caf50
+```
+
+**Explanation:**
+
+1. **Input Validation**: Pydantic ensures text is not empty and within length limits
+2. **Model Loading**: First request loads model, subsequent requests use cached version
+3. **Tokenization**: Same tokenizer used in training, ensures consistency
+4. **Inference**: Forward pass through model, typically 40-70ms
+5. **Post-Processing**: Convert logits to probabilities, determine sentiment
+6. **Logging**: Asynchronous writes to database and Prometheus to avoid blocking
+7. **Response**: JSON with sentiment, confidence, probabilities, and timing
+
+---
+
+### Monitoring Flow
+
+```mermaid
+flowchart LR
+    subgraph "Real-time Metrics"
+        API[API /metrics] -->|15s scrape| PROM[Prometheus]
+        PROM --> GRAF[Grafana Refresh<br/>Every 10s]
+    end
+
+    subgraph "Batch Analysis"
+        DB[(PostgreSQL)] -->|Hourly| DRIFT[Drift Detection]
+        DRIFT --> COMPARE{Drift > Threshold?}
+        COMPARE -->|Yes| ALERT[Create Alert]
+        COMPARE -->|No| CONTINUE[Continue Monitoring]
+    end
+
+    subgraph "Human Review"
+        GRAF --> REVIEW{Manual Review}
+        ALERT --> REVIEW
+        REVIEW -->|Issue Found| ACTION[Take Action<br/>Retrain/Investigate]
+        REVIEW -->|All Good| CONTINUE
+    end
+
+    style PROM fill:#ffe1e1
+    style DRIFT fill:#e1f5ff
+    style ALERT fill:#fff3e0
+```
+
+**Explanation:**
+
+1. **Real-time Metrics**: Prometheus scrapes API metrics, Grafana visualizes
+2. **Drift Detection**: Compares recent predictions to reference data from training
+3. **Alert Generation**: Creates alert if drift score exceeds threshold (0.5)
+4. **Human Review**: DevOps/ML engineers review dashboards and alerts
+5. **Action**: Retrain model, adjust thresholds, or investigate data quality issues
+
+### Deployment Architecture
+
+Production deployment on AWS using Terraform-managed infrastructure.
+
+```mermaid
+graph TB
+    subgraph "User Access"
+        USER[End Users]
+        DEV[Developers]
+    end
+
+    subgraph "AWS Cloud"
+        subgraph "Public Subnet"
+            ALB[Application Load Balancer<br/>SSL Termination]
+            NAT[NAT Gateway]
+        end
+
+        subgraph "Private Subnet - Compute"
+            ECS[ECS Fargate Cluster]
+            API1[API Container 1]
+            API2[API Container 2]
+            API3[API Container N<br/>Auto-scaling 2-10]
+
+            ECS --> API1
+            ECS --> API2
+            ECS --> API3
+        end
+
+        subgraph "Private Subnet - Data"
+            RDS[(RDS PostgreSQL<br/>Encrypted)]
+            S3[S3 Bucket<br/>Model Artifacts]
+        end
+
+        subgraph "Monitoring"
+            CW[CloudWatch<br/>Logs & Metrics]
+            SNS[SNS Topics<br/>Alerts]
+        end
+    end
+
+    USER -->|HTTPS| ALB
+    ALB --> API1
+    ALB --> API2
+    ALB --> API3
+
+    API1 --> RDS
+    API2 --> RDS
+    API3 --> RDS
+
+    API1 --> S3
+    API2 --> S3
+    API3 --> S3
+
+    API1 --> CW
+    API2 --> CW
+    API3 --> CW
+
+    CW --> SNS
+    SNS --> DEV
+
+    API1 -.->|Egress| NAT
+    API2 -.->|Egress| NAT
+    API3 -.->|Egress| NAT
+
+    style ALB fill:#ff9800
+    style RDS fill:#4caf50
+    style ECS fill:#2196f3
+    style S3 fill:#9c27b0
+```
+
+**Deployment Components:**
+
+- **Load Balancer**: Distributes traffic, SSL termination, health checks
+- **ECS Fargate**: Serverless containers, auto-scaling based on CPU/memory
+- **RDS PostgreSQL**: Managed database with automated backups, encryption at rest
+- **S3**: Model artifact storage, versioned, lifecycle policies
+- **CloudWatch**: Centralized logging, custom metrics, dashboards
+- **SNS**: Alert notifications to Slack, email, PagerDuty
+- **NAT Gateway**: Allows private subnet internet access (for Hugging Face downloads)
+
+**Scaling Strategy:**
+
+```mermaid
+graph LR
+    METRIC[CPU > 70%] --> TRIGGER[Auto-scaling Trigger]
+    TRIGGER --> SCALE[Launch New Task]
+    SCALE --> HEALTH[Health Check]
+    HEALTH --> LIVE{Healthy?}
+    LIVE -->|Yes| ADD[Add to Load Balancer]
+    LIVE -->|No| TERMINATE[Terminate & Retry]
+    ADD --> SERVE[Serve Traffic]
+
+    style METRIC fill:#ffe1e1
+    style ADD fill:#e1ffe1
+    style TERMINATE fill:#f44336
+```
+
+---
 
 ### Key Architectural Principles
 
@@ -84,6 +484,17 @@ The pipeline implements a production-ready MLOps architecture with clear separat
 - Prometheus metrics for API performance
 - Drift detection with Evidently AI
 - MLflow UI for experiment visualization
+
+**4. Immutable Infrastructure**
+- Container images are versioned and immutable
+- Infrastructure defined as code (Terraform)
+- Blue-green deployments for zero-downtime updates
+
+**5. Defense in Depth Security**
+- Network isolation (VPC, subnets, security groups)
+- Application security (CORS, input validation, SQL injection prevention)
+- Data security (encryption at rest and in transit)
+- Container security (non-root users, minimal base images)
 
 ### Project Structure
 
