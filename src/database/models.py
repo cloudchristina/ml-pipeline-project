@@ -39,7 +39,7 @@ class ExperimentRun(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Additional metadata
-    metadata = Column(JSON)
+    run_metadata = Column(JSON)
     artifacts_path = Column(Text)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -61,7 +61,7 @@ class ExperimentRun(Base):
             "training_duration": self.training_duration,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "metadata": self.metadata,
+            "metadata": self.run_metadata,
             "artifacts_path": self.artifacts_path
         }
 

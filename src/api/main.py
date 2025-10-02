@@ -26,6 +26,9 @@ from ..database.database import get_db_session
 from ..utils.config import config
 from ..utils.logger import get_logger, setup_logging
 
+# Setup directories for API service (only basic directories, no data pipeline)
+config.setup_directories(data_pipeline=False)
+
 # Setup logging
 setup_logging(config.log_level, f"{config.logs_dir}/api.log")
 logger = get_logger(__name__)
@@ -52,16 +55,20 @@ async def lifespan(app: FastAPI):
         metrics_service = MetricsService(config)
         feedback_service = FeedbackService(config)
 
-        # Load model
-        model_loaded = prediction_service.load_model()
-        if not model_loaded:
-            logger.warning("Model not loaded successfully, some endpoints may not work")
+        # Load model (make this non-blocking)
+        try:
+            model_loaded = prediction_service.load_model()
+            if not model_loaded:
+                logger.warning("Model not loaded successfully, some endpoints may not work")
+        except Exception as model_error:
+            logger.warning(f"Model loading failed, continuing without model: {str(model_error)}")
 
         logger.info("ML API service started successfully")
 
     except Exception as e:
         logger.error(f"Failed to start ML API service: {str(e)}")
-        raise
+        # Don't raise - allow the API to start even with some failures
+        logger.warning("API starting with limited functionality")
 
     yield
 

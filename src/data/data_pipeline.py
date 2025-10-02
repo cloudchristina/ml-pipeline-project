@@ -18,6 +18,8 @@ logger = get_logger(__name__)
 class DataPipeline:
     def __init__(self, config: Config):
         self.config = config
+        # Ensure data directories exist for pipeline operations
+        self.config.setup_directories(data_pipeline=True)
         self.loader = HuggingFaceDatasetLoader(config)
         self.run_metadata = {}
 

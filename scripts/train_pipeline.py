@@ -16,6 +16,9 @@ from models.training_pipeline import TrainingPipeline
 from utils.config import config
 from utils.logger import get_logger, setup_logging
 
+# Setup directories for training pipeline (includes data directories)
+config.setup_directories(data_pipeline=True)
+
 # Setup logging
 setup_logging(config.log_level, f"{config.logs_dir}/training.log")
 logger = get_logger(__name__)

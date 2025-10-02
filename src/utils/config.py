@@ -62,16 +62,33 @@ class Config:
     log_format: str = field(default_factory=lambda: os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 
     def __post_init__(self):
-        """Create necessary directories after initialization."""
-        directories = [
-            self.data_dir,
+        """Post-initialization setup without creating directories."""
+        pass
+
+    def setup_directories(self, data_pipeline=True):
+        """Create necessary directories on demand.
+
+        Args:
+            data_pipeline: Whether to create data pipeline directories (raw, processed, cache, metadata)
+        """
+        # Always create basic directories
+        basic_directories = [
             self.model_dir,
-            self.logs_dir,
-            f"{self.data_dir}/raw",
-            f"{self.data_dir}/processed",
-            f"{self.data_dir}/cache",
-            f"{self.data_dir}/metadata"
+            self.logs_dir
         ]
+
+        directories = basic_directories.copy()
+
+        # Only create data pipeline directories if requested
+        if data_pipeline:
+            data_directories = [
+                self.data_dir,
+                f"{self.data_dir}/raw",
+                f"{self.data_dir}/processed",
+                f"{self.data_dir}/cache",
+                f"{self.data_dir}/metadata"
+            ]
+            directories.extend(data_directories)
 
         for directory in directories:
             Path(directory).mkdir(parents=True, exist_ok=True)

@@ -136,8 +136,7 @@ class DatabaseManager:
                         "pool_size": self.engine.pool.size(),
                         "checked_in": self.engine.pool.checkedin(),
                         "checked_out": self.engine.pool.checkedout(),
-                        "overflow": self.engine.pool.overflow(),
-                        "invalid": self.engine.pool.invalid()
+                        "overflow": self.engine.pool.overflow()
                     }
                 }
 
