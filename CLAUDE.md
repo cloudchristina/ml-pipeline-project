@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an enterprise-grade ML pipeline for sentiment analysis using Hugging Face Transformers. The architecture implements comprehensive MLOps practices including model training, serving, monitoring, and infrastructure as code.
 
+**Dataset**: [IMDB Movie Reviews](https://huggingface.co/datasets/stanfordnlp/imdb) (25,000 training samples)
+**Model**: [DistilBERT-base-uncased](https://huggingface.co/distilbert-base-uncased) (fine-tuned for binary sentiment classification)
+
 ## Development Commands
 
 ### Development Environment Setup

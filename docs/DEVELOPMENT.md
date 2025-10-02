@@ -29,9 +29,9 @@ This ML pipeline implements a complete end-to-end MLOps system with three distin
 ```mermaid
 graph TB
     subgraph "Training Environment"
-        HF[Hugging Face Datasets<br/>IMDB 25k reviews]
+        HF["Hugging Face Datasets<br/><a href='https://huggingface.co/datasets/stanfordnlp/imdb'>IMDB 25k reviews</a>"]
         DP[Data Pipeline<br/>Tokenization & Preprocessing]
-        TP[Training Pipeline<br/>DistilBERT Fine-tuning]
+        TP["Training Pipeline<br/><a href='https://huggingface.co/distilbert-base-uncased'>DistilBERT</a> Fine-tuning"]
         MLF[MLflow<br/>Experiment Tracking]
 
         HF --> DP
@@ -124,10 +124,10 @@ flowchart LR
 
 **Component Explanations:**
 
-- **Dataset Loader**: Fetches IMDB dataset from Hugging Face, caches locally
-- **Tokenizer**: Converts text to tokens using DistilBERT vocabulary (30,522 tokens)
+- **Dataset Loader**: Fetches [IMDB dataset](https://huggingface.co/datasets/stanfordnlp/imdb) from Hugging Face, caches locally
+- **Tokenizer**: Converts text to tokens using [DistilBERT](https://huggingface.co/distilbert-base-uncased) vocabulary (30,522 tokens)
 - **Data Pipeline**: Handles batching, padding, and dataset splitting
-- **Model Trainer**: Fine-tunes DistilBERT using Hugging Face Trainer API
+- **Model Trainer**: Fine-tunes [DistilBERT](https://huggingface.co/distilbert-base-uncased) using Hugging Face Trainer API
 - **Optuna Optimizer**: Searches hyperparameter space (learning rate, batch size, epochs)
 - **MLflow Tracking**: Logs parameters, metrics, and artifacts for each run
 - **MLflow Registry**: Versions models and tracks lineage
@@ -671,8 +671,8 @@ docker-compose ps
 ## Technology Stack
 
 ### Machine Learning
-- **Model**: DistilBERT-base-uncased (Hugging Face Transformers)
-- **Dataset**: IMDB movie reviews (25,000 training samples)
+- **Model**: [DistilBERT-base-uncased](https://huggingface.co/distilbert-base-uncased) (Hugging Face Transformers)
+- **Dataset**: [IMDB movie reviews](https://huggingface.co/datasets/stanfordnlp/imdb) (25,000 training samples)
 - **Framework**: PyTorch 2.8.0
 - **Training**: Transformers Trainer with mixed precision
 - **Optimization**: Optuna for hyperparameter search

@@ -1,6 +1,6 @@
 # End-to-End ML Pipeline with Hugging Face
 
-A comprehensive MLOps pipeline demonstrating enterprise-level machine learning practices using Hugging Face Transformers for sentiment analysis on the IMDB dataset.
+A comprehensive MLOps pipeline demonstrating enterprise-level machine learning practices using Hugging Face Transformers for sentiment analysis on the [IMDB dataset](https://huggingface.co/datasets/stanfordnlp/imdb).
 
 ## 🏗️ Architecture Overview
 
@@ -169,8 +169,8 @@ ml-pipeline-project/
 ## 🛠️ Technology Stack
 
 ### Machine Learning
-- **Model**: DistilBERT-base-uncased (Hugging Face Transformers)
-- **Dataset**: IMDB movie reviews (25,000 training samples)
+- **Model**: [DistilBERT-base-uncased](https://huggingface.co/distilbert-base-uncased) (Hugging Face Transformers)
+- **Dataset**: [IMDB movie reviews](https://huggingface.co/datasets/stanfordnlp/imdb) (25,000 training samples)
 - **Framework**: PyTorch 2.8.0
 - **Training**: Transformers Trainer with mixed precision
 - **Optimization**: Optuna for hyperparameter search
