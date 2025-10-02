@@ -9,12 +9,12 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.training_pipeline import TrainingPipeline
-from utils.config import config
-from utils.logger import get_logger, setup_logging
+from src.models.training_pipeline import TrainingPipeline
+from src.utils.config import config
+from src.utils.logger import get_logger, setup_logging
 
 # Setup directories for training pipeline (includes data directories)
 config.setup_directories(data_pipeline=True)

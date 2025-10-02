@@ -1,5 +1,4 @@
 import os
-import logging
 from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
 
@@ -80,11 +79,12 @@ class HuggingFaceDatasetLoader:
         try:
             logger.info("Starting tokenization process")
 
-            # Tokenize all splits
+            # Tokenize all splits - only remove 'text' column, keep 'label'
+            columns_to_remove = [col for col in dataset["train"].column_names if col != "label"]
             tokenized_dataset = dataset.map(
                 tokenize_function,
                 batched=True,
-                remove_columns=dataset["train"].column_names,
+                remove_columns=columns_to_remove,
                 desc="Tokenizing"
             )
 
@@ -122,9 +122,9 @@ class HuggingFaceDatasetLoader:
                 stratify=df["label"] if "label" in df.columns else None
             )
 
-            # Convert back to Dataset
-            train_dataset = Dataset.from_pandas(train_df)
-            val_dataset = Dataset.from_pandas(val_df)
+            # Convert back to Dataset (reset index to avoid __index_level_0__ column)
+            train_dataset = Dataset.from_pandas(train_df.reset_index(drop=True))
+            val_dataset = Dataset.from_pandas(val_df.reset_index(drop=True))
 
             logger.info(f"Split created - Train: {len(train_dataset)}, Val: {len(val_dataset)}")
 
@@ -161,7 +161,10 @@ class HuggingFaceDatasetLoader:
 
                 # Label distribution if label column exists
                 if "label" in split_dataset.column_names:
+                    # Convert to list to handle both regular lists and torch tensors
                     labels = split_dataset["label"]
+                    if hasattr(labels[0], 'item'):  # It's a torch tensor
+                        labels = [label.item() for label in labels]
                     label_counts = pd.Series(labels).value_counts().to_dict()
                     split_stats["label_distribution"] = label_counts
 

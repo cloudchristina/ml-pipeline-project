@@ -72,7 +72,7 @@ services:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MODEL_NAME=${MODEL_NAME:-distilbert-base-uncased}
       - MAX_LENGTH=${MAX_LENGTH:-512}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
     volumes:
       - ./models:/app/models
       - ./data:/app/data
@@ -110,7 +110,7 @@ services:
       - BATCH_SIZE=${BATCH_SIZE:-16}
       - NUM_EPOCHS=${NUM_EPOCHS:-3}
       - LEARNING_RATE=${LEARNING_RATE:-2e-5}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
     volumes:
       - ./models:/app/models
       - ./data:/app/data

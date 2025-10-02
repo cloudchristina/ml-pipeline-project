@@ -181,7 +181,7 @@ class PredictionService:
                 prediction_repo = PredictionRepository(session)
 
                 # Create input hash for deduplication
-                input_hash = hashlib.md5(prediction_data["text"].encode()).hexdigest()
+                input_hash = hashlib.sha256(prediction_data["text"].encode()).hexdigest()
 
                 log_data = {
                     "deployment_id": self.deployment_id,
@@ -242,13 +242,33 @@ class HealthService:
             health_status["database_connected"] = False
             health_status["database_error"] = str(e)
 
-        # Check MLflow connectivity
+        # Check MLflow connectivity (with timeout to prevent hanging)
         try:
             import mlflow
+            from urllib3.util import Timeout
+            import requests
+
             mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
-            # Simple connectivity test
-            mlflow.search_experiments(max_results=1)
-            health_status["mlflow_connected"] = True
+
+            # Only check if MLflow URI is http/https (not file-based)
+            if self.config.mlflow_tracking_uri.startswith(('http://', 'https://')):
+                # Quick connectivity check with 2 second timeout
+                try:
+                    response = requests.get(
+                        self.config.mlflow_tracking_uri,
+                        timeout=2
+                    )
+                    health_status["mlflow_connected"] = response.status_code < 500
+                except requests.exceptions.Timeout:
+                    health_status["mlflow_connected"] = False
+                    health_status["mlflow_error"] = "Connection timeout"
+                except Exception as e:
+                    health_status["mlflow_connected"] = False
+                    health_status["mlflow_error"] = str(e)
+            else:
+                # File-based MLflow tracking
+                health_status["mlflow_connected"] = True
+                health_status["mlflow_type"] = "file-based"
         except Exception as e:
             health_status["mlflow_connected"] = False
             health_status["mlflow_error"] = str(e)
@@ -257,9 +277,17 @@ class HealthService:
         # This would need to be injected from the prediction service
         health_status["model_loaded"] = False
 
-        # Overall status
-        if not health_status["database_connected"] or not health_status["mlflow_connected"]:
+        # Overall status determination
+        # Critical dependencies: database (for logging), model (injected separately)
+        # Optional dependencies: MLflow (only for training/tracking, not serving)
+        critical_failures = []
+
+        if not health_status["database_connected"]:
+            critical_failures.append("database")
             health_status["status"] = "degraded"
+
+        # Note: MLflow connectivity is informational only - API serves predictions without it
+        # MLflow is only required during training, not during inference serving
 
         return health_status
 

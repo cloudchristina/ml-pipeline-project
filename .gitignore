@@ -60,6 +60,19 @@ data/processed/
 # Logs
 logs/
 *.log
+training_*.log
+
+# Generated reports
+*_report.html
+prediction_logs_report.html
+
+# Temporary utility scripts
+cc.sh
+test_components.py
+view_database.py
+create_frontend_files.py
+generate_test_predictions.sh
+setup_frontend.sh
 
 # Docker
 .docker/

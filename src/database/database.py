@@ -1,4 +1,3 @@
-import logging
 import re
 from contextlib import contextmanager
 from typing import Generator, List, Dict, Any, Optional
@@ -128,16 +127,23 @@ class DatabaseManager:
                 # Get database info
                 db_info = session.execute(text("SELECT version()")).fetchone()
 
+                # Get pool status safely (different methods for SQLAlchemy 2.x)
+                pool_status = {}
+                try:
+                    pool = self.engine.pool
+                    # Try to get pool info if available
+                    pool_status = {
+                        "pool_size": getattr(pool, '_pool', None) and len(pool._pool.queue) if hasattr(pool, '_pool') else 0,
+                        "status": "connected"
+                    }
+                except Exception:
+                    pool_status = {"status": "unknown"}
+
                 return {
                     "status": "healthy",
                     "connection_test": "passed",
                     "database_info": str(db_info[0]) if db_info else "unknown",
-                    "pool_status": {
-                        "pool_size": self.engine.pool.size(),
-                        "checked_in": self.engine.pool.checkedin(),
-                        "checked_out": self.engine.pool.checkedout(),
-                        "overflow": self.engine.pool.overflow()
-                    }
+                    "pool_status": pool_status
                 }
 
         except Exception as e:
