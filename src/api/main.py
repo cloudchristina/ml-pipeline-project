@@ -1,3 +1,4 @@
+import time
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -5,7 +6,7 @@ from typing import Dict, Any
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -22,6 +23,7 @@ from .models import (
     ErrorResponse
 )
 from .services import PredictionService, HealthService, MetricsService, FeedbackService
+from . import prometheus_metrics
 from ..database.database import get_db_session
 from ..utils.config import config
 from ..utils.logger import get_logger, setup_logging
@@ -60,8 +62,17 @@ async def lifespan(app: FastAPI):
             model_loaded = prediction_service.load_model()
             if not model_loaded:
                 logger.warning("Model not loaded successfully, some endpoints may not work")
+                prometheus_metrics.set_model_loaded_status(False)
+            else:
+                prometheus_metrics.set_model_loaded_status(True)
+                model_info = prediction_service.get_model_info()
+                prometheus_metrics.set_model_info(
+                    model_name=model_info.get("model_name", "unknown"),
+                    version=model_info.get("model_version", "1.0.0")
+                )
         except Exception as model_error:
             logger.warning(f"Model loading failed, continuing without model: {str(model_error)}")
+            prometheus_metrics.set_model_loaded_status(False)
 
         logger.info("ML API service started successfully")
 
@@ -139,6 +150,18 @@ async def general_exception_handler(request, exc):
     )
 
 
+# Prometheus metrics endpoint
+@app.get("/metrics")
+async def metrics():
+    """Expose Prometheus metrics."""
+    try:
+        metrics_output = prometheus_metrics.get_metrics()
+        return Response(content=metrics_output, media_type="text/plain")
+    except Exception as e:
+        logger.error(f"Failed to generate metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate metrics")
+
+
 # Health check endpoints
 @app.get("/health", response_model=HealthCheckResponse)
 async def health_check():
@@ -200,7 +223,11 @@ async def root():
 async def predict_sentiment(request: PredictionRequest):
     """Make a single sentiment prediction."""
     if not prediction_service or not prediction_service.model_loaded:
+        prometheus_metrics.record_error("ModelNotLoaded", "/predict")
         raise HTTPException(status_code=503, detail="Model not loaded")
+
+    prometheus_metrics.increment_active_requests()
+    start_time = time.time()
 
     try:
         logger.info(f"Processing prediction request for text length: {len(request.text)}")
@@ -210,6 +237,16 @@ async def predict_sentiment(request: PredictionRequest):
             return_probabilities=request.return_probabilities,
             request_id=request.request_id
         )
+
+        # Record metrics
+        duration_seconds = time.time() - start_time
+        prometheus_metrics.record_prediction(
+            sentiment=result["predicted_sentiment"],
+            confidence=result["confidence"],
+            duration_seconds=duration_seconds,
+            endpoint="predict"
+        )
+        prometheus_metrics.record_request("POST", "/predict", 200)
 
         return PredictionResult(
             text=result["text"],
@@ -224,14 +261,23 @@ async def predict_sentiment(request: PredictionRequest):
 
     except Exception as e:
         logger.error(f"Prediction failed: {str(e)}")
+        prometheus_metrics.record_error("PredictionError", "/predict")
+        prometheus_metrics.record_request("POST", "/predict", 500)
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+    finally:
+        prometheus_metrics.decrement_active_requests()
 
 
 @app.post("/predict/batch", response_model=BatchPredictionResult)
 async def predict_batch(request: BatchPredictionRequest):
     """Make batch sentiment predictions."""
     if not prediction_service or not prediction_service.model_loaded:
+        prometheus_metrics.record_error("ModelNotLoaded", "/predict/batch")
         raise HTTPException(status_code=503, detail="Model not loaded")
+
+    prometheus_metrics.increment_active_requests()
+    start_time = time.time()
 
     try:
         logger.info(f"Processing batch prediction request for {len(request.texts)} texts")
@@ -242,20 +288,32 @@ async def predict_batch(request: BatchPredictionRequest):
             request_id=request.request_id
         )
 
-        # Convert predictions to PredictionResult objects
-        predictions = [
-            PredictionResult(
-                text=pred["text"],
-                predicted_label=pred["predicted_label"],
-                predicted_sentiment=pred["predicted_sentiment"],
-                confidence=pred["confidence"],
-                probabilities=pred.get("probabilities"),
-                prediction_time_ms=pred["prediction_time_ms"],
-                model_version=pred["model_version"],
-                timestamp=datetime.fromisoformat(pred["timestamp"])
+        # Convert predictions to PredictionResult objects and record metrics
+        predictions = []
+        for pred in result["predictions"]:
+            predictions.append(
+                PredictionResult(
+                    text=pred["text"],
+                    predicted_label=pred["predicted_label"],
+                    predicted_sentiment=pred["predicted_sentiment"],
+                    confidence=pred["confidence"],
+                    probabilities=pred.get("probabilities"),
+                    prediction_time_ms=pred["prediction_time_ms"],
+                    model_version=pred["model_version"],
+                    timestamp=datetime.fromisoformat(pred["timestamp"])
+                )
             )
-            for pred in result["predictions"]
-        ]
+
+            # Record individual prediction metrics
+            prometheus_metrics.record_prediction(
+                sentiment=pred["predicted_sentiment"],
+                confidence=pred["confidence"],
+                duration_seconds=pred["prediction_time_ms"] / 1000.0,
+                endpoint="batch"
+            )
+
+        # Record batch request
+        prometheus_metrics.record_request("POST", "/predict/batch", 200)
 
         return BatchPredictionResult(
             request_id=result["request_id"],
@@ -268,7 +326,12 @@ async def predict_batch(request: BatchPredictionRequest):
 
     except Exception as e:
         logger.error(f"Batch prediction failed: {str(e)}")
+        prometheus_metrics.record_error("PredictionError", "/predict/batch")
+        prometheus_metrics.record_request("POST", "/predict/batch", 500)
         raise HTTPException(status_code=500, detail=f"Batch prediction failed: {str(e)}")
+
+    finally:
+        prometheus_metrics.decrement_active_requests()
 
 
 # Feedback endpoint

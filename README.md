@@ -684,10 +684,10 @@ weight_decay = 0.01   # Prevents overfitting
 
 ## 📚 Documentation
 
-- [Architecture Overview](ARCHITECTURE.md) - Detailed system design
-- [Claude Code Instructions](CLAUDE.md) - Development guide for AI assistants
-- [API Documentation](http://localhost:8000/docs) - Interactive API docs (when running)
-- [Contributing Guide](CONTRIBUTING.md) - How to contribute (if available)
+- **[Development Guide](docs/DEVELOPMENT.md)** - Architecture, design decisions, development workflows
+- **[Monitoring Guide](docs/MONITORING.md)** - Prometheus, Grafana, drift detection, troubleshooting
+- **[API Documentation](http://localhost:8000/docs)** - Interactive API docs (when running)
+- **[Claude Code Instructions](CLAUDE.md)** - Development guide for AI assistants
 
 ## 🔐 Security
 
