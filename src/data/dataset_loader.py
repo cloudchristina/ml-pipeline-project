@@ -14,14 +14,43 @@ logger = get_logger(__name__)
 
 
 class HuggingFaceDatasetLoader:
+    """
+    Handles loading and preprocessing datasets from Hugging Face Hub.
+
+    This class manages the entire dataset lifecycle including:
+    - Loading raw datasets from Hugging Face
+    - Tokenization for model consumption
+    - Train/validation splits
+    - Dataset statistics and caching
+    """
+
     def __init__(self, config: Config):
+        """
+        Initialize the dataset loader.
+
+        Args:
+            config: Configuration object containing data directories and settings
+        """
         self.config = config
         self.tokenizer = None
         self.raw_dataset = None
         self.processed_dataset = None
 
     def load_dataset(self, dataset_name: str = "imdb") -> DatasetDict:
-        """Load dataset from Hugging Face Hub with caching."""
+        """
+        Load dataset from Hugging Face Hub with caching.
+
+        Downloads and caches datasets from Hugging Face for offline use.
+
+        Args:
+            dataset_name: Name of the dataset on Hugging Face Hub (default: "imdb")
+
+        Returns:
+            DatasetDict containing train/test/validation splits
+
+        Raises:
+            Exception: If dataset cannot be loaded from Hugging Face
+        """
         try:
             logger.info(f"Loading dataset: {dataset_name}")
             cache_dir = Path(self.config.data_dir) / "cache"
@@ -43,7 +72,21 @@ class HuggingFaceDatasetLoader:
             raise
 
     def prepare_tokenizer(self, model_name: str = "distilbert-base-uncased") -> AutoTokenizer:
-        """Initialize and configure tokenizer."""
+        """
+        Initialize and configure tokenizer for the specified model.
+
+        Loads the tokenizer corresponding to the model architecture and sets up
+        padding tokens if needed.
+
+        Args:
+            model_name: Hugging Face model name (default: "distilbert-base-uncased")
+
+        Returns:
+            Configured AutoTokenizer instance
+
+        Raises:
+            Exception: If tokenizer cannot be loaded
+        """
         try:
             logger.info(f"Loading tokenizer: {model_name}")
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -63,7 +106,23 @@ class HuggingFaceDatasetLoader:
             raise
 
     def tokenize_dataset(self, dataset: DatasetDict, max_length: int = 512) -> DatasetDict:
-        """Tokenize text data for model training."""
+        """
+        Tokenize text data for model training.
+
+        Converts raw text into token IDs with attention masks, ready for model input.
+        Applies truncation and padding to ensure uniform sequence length.
+
+        Args:
+            dataset: DatasetDict containing raw text in "text" field
+            max_length: Maximum sequence length for tokenization (default: 512)
+
+        Returns:
+            Tokenized DatasetDict with input_ids, attention_mask, and label fields
+
+        Raises:
+            ValueError: If tokenizer is not initialized
+            Exception: If tokenization fails
+        """
         if self.tokenizer is None:
             raise ValueError("Tokenizer not initialized. Call prepare_tokenizer() first.")
 
@@ -108,7 +167,23 @@ class HuggingFaceDatasetLoader:
         test_size: float = 0.2,
         random_state: int = 42
     ) -> Dict[str, Dataset]:
-        """Create train/validation split if not already present."""
+        """
+        Create train/validation split if not already present.
+
+        Splits training data into separate train and validation sets using
+        stratified sampling to maintain label distribution.
+
+        Args:
+            dataset: Dataset to split (typically the training set)
+            test_size: Proportion of data for validation (default: 0.2 = 20%)
+            random_state: Random seed for reproducibility (default: 42)
+
+        Returns:
+            Dictionary with "train" and "validation" Dataset objects
+
+        Raises:
+            Exception: If split creation fails
+        """
         try:
             logger.info(f"Creating validation split with test_size={test_size}")
 
@@ -138,7 +213,23 @@ class HuggingFaceDatasetLoader:
             raise
 
     def get_dataset_statistics(self, dataset: DatasetDict) -> Dict[str, Any]:
-        """Generate dataset statistics and metadata."""
+        """
+        Generate dataset statistics and metadata.
+
+        Computes comprehensive statistics including:
+        - Number of examples per split
+        - Text length statistics (avg, min, max)
+        - Label distribution
+
+        Args:
+            dataset: DatasetDict to analyze
+
+        Returns:
+            Dictionary containing statistics for each split
+
+        Raises:
+            Exception: If statistics generation fails
+        """
         try:
             stats = {}
 
