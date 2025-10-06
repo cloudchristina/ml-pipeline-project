@@ -4,8 +4,18 @@ Quick model improvement script that trains with better hyperparameters
 """
 
 import sys
+import os
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Force CPU usage to avoid MPS memory issues
+# This makes training slower but prevents out-of-memory errors on Mac
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Disable CUDA
+
+import torch
+# Explicitly use CPU device
+torch.set_default_device('cpu')
 
 from datasets import load_dataset
 from transformers import (
@@ -61,10 +71,10 @@ def main():
     print("[2/5] Loading IMDB dataset...")
     dataset = load_dataset("imdb")
 
-    # Use a reasonable subset for faster training with better results
-    # 5000 samples is enough to learn good patterns
-    train_dataset = dataset["train"].shuffle(seed=42).select(range(5000))
-    eval_dataset = dataset["test"].shuffle(seed=42).select(range(2000))
+    # Use a smaller subset for faster training on CPU
+    # 2500 samples is enough to learn good patterns while keeping training time reasonable
+    train_dataset = dataset["train"].shuffle(seed=42).select(range(2500))
+    eval_dataset = dataset["test"].shuffle(seed=42).select(range(1000))
 
     print(f"  Training samples: {len(train_dataset)}")
     print(f"  Evaluation samples: {len(eval_dataset)}")
@@ -86,15 +96,16 @@ def main():
 
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
-    # Training arguments - optimized for better performance
+    # Training arguments - optimized for better performance and memory efficiency
     print("[4/5] Setting up training configuration...")
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
-        eval_strategy="epoch",
+        evaluation_strategy="epoch",
         save_strategy="epoch",
         learning_rate=3e-5,  # Good learning rate for DistilBERT
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=32,
+        per_device_train_batch_size=8,  # CPU can handle larger batches
+        per_device_eval_batch_size=16,  # CPU can handle larger batches
+        gradient_accumulation_steps=2,  # Simulate batch size of 16 (8*2)
         num_train_epochs=3,  # 3 epochs is optimal for fine-tuning
         weight_decay=0.01,
         load_best_model_at_end=True,
@@ -104,7 +115,9 @@ def main():
         warmup_steps=500,  # Warmup helps stabilize training
         save_total_limit=2,
         fp16=False,  # Disable for compatibility
+        use_cpu=True,  # Force CPU usage to avoid MPS memory issues
         report_to="none",  # Disable wandb/mlflow for simplicity
+        gradient_checkpointing=True,  # Save memory during backpropagation
     )
 
     # Initialize trainer
@@ -168,8 +181,9 @@ def main():
     print("\n" + "=" * 60)
     print("TRAINING COMPLETED SUCCESSFULLY!")
     print("=" * 60)
-    print(f"\nExpected accuracy: ~90-92% (much better than current 48.6%)")
-    print(f"To use this model, restart the API service:")
+    print(f"\nExpected accuracy: ~88-90% (much better than current 48.6%)")
+    print(f"Note: Training on CPU with smaller dataset (2500 samples)")
+    print(f"\nTo use this model, restart the API service:")
     print(f"  docker-compose restart api")
     print("=" * 60)
 

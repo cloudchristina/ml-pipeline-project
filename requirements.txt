@@ -9,6 +9,7 @@ torchvision==0.17.0
 torchaudio==2.2.0
 transformers==4.40.0
 datasets==2.16.0
+accelerate==0.27.0  # Required for transformers Trainer
 scikit-learn==1.4.0
 numpy==1.26.4
 pandas==2.1.4
@@ -37,7 +38,7 @@ alembic==1.13.2
 # ============================================================
 # Monitoring & Observability
 # ============================================================
-evidently==0.4.27
+evidently==0.4.16  # Last version compatible with fsspec<2024 (required by datasets 2.16.0)
 prometheus-client==0.22.0
 grafana-api==1.0.3
 
@@ -45,7 +46,7 @@ grafana-api==1.0.3
 # Data Processing
 # ============================================================
 pyarrow==15.0.0
-fsspec==2024.6.1
+fsspec<=2023.10.0,>=2023.1.0
 
 # ============================================================
 # Utilities
