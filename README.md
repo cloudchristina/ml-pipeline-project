@@ -29,23 +29,47 @@
 
 ## 🚀 Quick Start
 
-### Deploy in 15 Minutes
+### Option 1: AWS SageMaker (Recommended for Training)
+
+**Complete guide:** See [`SAGEMAKER_GUIDE.md`](SAGEMAKER_GUIDE.md)
+
+```bash
+# In SageMaker JupyterLab
+git clone <repo-url>
+cd ml-pipeline-project
+pip install -r requirements.txt
+python test_installation.py
+# Then follow SAGEMAKER_GUIDE.md step-by-step
+```
+
+**What you'll do:**
+- ✅ Train DistilBERT sentiment model (20-60 min)
+- ✅ Deploy to real-time endpoint
+- ✅ Test predictions via API
+- ✅ Full MLOps workflow
+
+---
+
+### Option 2: Local Development
 
 ```bash
 # 1. Setup (1 min)
 git clone <repo-url> && cd ml-pipeline-project
-cp .env.example .env
-echo "DB_PASSWORD=secure_password_123" >> .env
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
 
-# 2. Start infrastructure (2 min)
+# 2. Verify installation
+python test_installation.py
+
+# 3. Start infrastructure (2 min)
 docker-compose up -d postgres mlflow
 sleep 60  # Wait for health checks
 
-# 3. Train model (5 min quick, or 15 min optimized)
+# 4. Train model (5 min quick, or 20 min full)
 python scripts/train_pipeline.py --quick
 # Better accuracy: python scripts/train_better_model.py
 
-# 4. Start API & Frontend (3 min)
+# 5. Start API & Frontend (3 min)
 docker-compose up -d api frontend
 sleep 30  # Wait for model loading
 
